@@ -1,69 +1,68 @@
-
 # 🛍️ Olist E-Commerce Analytics Dashboard
 
 **Exploratory Data Analysis · Business Intelligence · Streamlit**
 
-An end-to-end data analysis project using the Brazilian E-Commerce Public Dataset by Olist to explore monthly transaction trends, product value, customer reviews, and delivery performance.
+An end-to-end data analysis project using the Brazilian E-Commerce Public Dataset by Olist to explore monthly order trends, product value, customer reviews, and delivery performance.
 
 ![Olist E-Commerce Analytics Dashboard](dashboard/dashboard-preview.png)
 
 ## 📌 Project Overview
 
-This project analyzes e-commerce transactions to identify business patterns and provide insights into sales activity and delivery performance.
-
-The analysis includes data wrangling, data cleaning, exploratory data analysis (EDA), data aggregation, visualization, and business recommendations. An interactive Streamlit dashboard is provided to explore the results.
+This project explores e-commerce transaction data to understand order trends, product value, customer satisfaction, and delivery performance. It combines data wrangling, data cleaning, exploratory data analysis (EDA), aggregation, visualization, and business recommendations in an interactive Streamlit dashboard.
 
 ## 🎯 Business Questions
 
-1. How did the number of unique orders and total product value change monthly during the analysis period, and which months recorded the highest and lowest values?
-2. How did average review scores differ between late and on-time or early deliveries, and which customer states recorded the highest late-delivery rates among states with at least 100 orders containing delivery data?
+1. How did monthly order counts and product value change during the analysis period, and which months recorded the highest and lowest values?
+2. How did average customer review scores differ between late and on-time or early deliveries?
+3. Which customer states recorded the highest late-delivery rates among states with at least 100 orders containing delivery data?
 
 ## 📊 Dashboard
 
-The Streamlit dashboard provides:
+The interactive dashboard provides:
 
 - Monthly order trends.
 - Monthly product value trends.
 - Average customer review scores.
-- Delivery delay rate.
+- Delivery performance indicators.
 - Filters for purchase date and customer state.
+- Regional comparisons of late-delivery rates.
 
-**Live dashboard:** Add your deployed Streamlit Community Cloud URL here after deployment.
+**Live dashboard:** Add your deployed Streamlit Community Cloud URL after deployment.
 
 ## 🔎 Analysis Workflow
 
-1. **Data Wrangling** — Load the datasets and inspect their structure.
+1. **Data Wrangling** — Load and inspect the required datasets.
 2. **Data Cleaning** — Handle missing values, data types, and data consistency.
-3. **Exploratory Data Analysis** — Examine distributions and summarize key metrics.
-4. **Data Aggregation** — Compare monthly transaction patterns and delivery performance by customer state.
-5. **Visualization** — Present the findings using charts and an interactive dashboard.
-6. **Business Insights** — Interpret the results and formulate recommendations.
+3. **Exploratory Data Analysis** — Explore transaction patterns, customer reviews, and delivery performance.
+4. **Data Aggregation** — Summarize monthly metrics and compare delivery performance by customer state.
+5. **Visualization** — Present the results through charts and an interactive dashboard.
+6. **Business Insights** — Interpret the findings and develop data-informed recommendations.
 
 ## 💡 Key Findings
 
-The final findings are derived from the executed notebook and dashboard.
+*The numerical findings below should be completed using the latest executed notebook and dashboard data.*
 
-- **Transaction trends:** Identify the months with the highest and lowest order counts and product values.
-- **Delivery performance:** Compare average review scores between late and on-time or early deliveries.
-- **Regional performance:** Identify customer states with elevated late-delivery rates using a minimum sample threshold.
-
-Replace these summary statements with numerical findings from the completed analysis before publishing the final version.
+- **Transaction trends:** Report the months with the highest and lowest order counts and product values.
+- **Customer satisfaction:** Compare average review scores for late deliveries and on-time or early deliveries.
+- **Regional delivery performance:** Highlight customer states with the highest late-delivery rates among states with at least 100 orders containing delivery data.
 
 ## 🛠️ Tech Stack
 
 - Python
 - Pandas and NumPy
 - Matplotlib and Seaborn
+- Plotly
 - Jupyter Notebook
 - Streamlit
 
 ## 📁 Project Structure
 
 ```text
-submission/
+olist-ecommerce-analysis/
 ├── dashboard/
 │   ├── dashboard.py
-│   └── main_data.csv
+│   ├── main_data.csv
+│   └── dashboard-preview.png
 ├── data/
 │   ├── customers_dataset.csv
 │   ├── order_items_dataset.csv
@@ -78,14 +77,16 @@ submission/
 └── url.txt
 ```
 
+*The structure above is illustrative. Keep only files and folders that actually exist in the repository.*
+
 ## 🚀 Getting Started
 
 ### Prerequisites
 
-- Python 3.10 or a compatible version.
-- pip.
-- Git.
-- Visual Studio Code (recommended).
+- Python 3.10 or a compatible version
+- pip
+- Git
+- Visual Studio Code (recommended)
 
 ### 1. Clone the repository
 
@@ -114,37 +115,34 @@ py -m venv .venv
 
 ```bash
 python -m pip install --upgrade pip
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
 ```
 
-### 4. Run the Streamlit dashboard locally
+### 4. Run the dashboard
 
-From the repository root, run:
+From the repository root:
 
 ```bash
 streamlit run dashboard/dashboard.py
 ```
 
-Open the local URL shown in the terminal, usually:
+Open the local URL displayed in the terminal, usually `http://localhost:8501`.
 
-```text
-http://localhost:8501
-```
-
-Press `Ctrl + C` in the terminal to stop the application.
+Press `Ctrl + C` to stop the application.
 
 ### 5. Run the analysis notebook
 
-Open `notebook.ipynb` in Visual Studio Code, select the project's Python environment, and run the cells sequentially.
+Open `notebook.ipynb` in Visual Studio Code, select the project's Python environment, and execute the cells sequentially.
 
-Ensure the required datasets are available in the paths referenced by the notebook.
+Ensure that the required datasets are available at the paths referenced by the notebook. If the notebook generates the dashboard dataset, regenerate `dashboard/main_data.csv` after making analysis changes.
 
-## ⚠️ Notes
+## ⚠️ Notes and Limitations
 
-- Analysis results depend on the datasets and date range used.
+- Results depend on the datasets, cleaning steps, and analysis period.
 - Delivery metrics exclude records without the required delivery information.
+- Regional comparisons include only states meeting the minimum sample threshold of 100 orders with delivery data.
 - Review-score comparisons are descriptive and do not establish causation.
-- Only datasets required by the project should be included in the repository.
+- Include only files permitted by the project requirements and ensure that all referenced files exist.
 
 ## 👩‍💻 Author
 
@@ -152,4 +150,3 @@ Ensure the required datasets are available in the paths referenced by the notebo
 
 Undergraduate Data Science Student  
 State University of Surabaya (UNESA)
-# olist-ecommerce-analysis

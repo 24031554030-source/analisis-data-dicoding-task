@@ -5,7 +5,7 @@ import plotly.express as px
 from pathlib import Path
 
 st.set_page_config(
-    page_title="E-Commerce Analytics",
+    page_title="Olist E-Commerce Analytics",
     page_icon="🛍️",
     layout="wide"
 )
@@ -16,25 +16,66 @@ DATA_PATH = BASE_DIR / "main_data.csv"
 
 @st.cache_data
 def load_data():
-    df = pd.read_csv(
-        DATA_PATH,
-        parse_dates=["order_purchase_timestamp"]
-    )
+    date_columns = [
+        "order_purchase_timestamp",
+        "order_delivered_customer_date",
+        "order_estimated_delivery_date",
+    ]
+
+    df = pd.read_csv(DATA_PATH)
+
+    for col in date_columns:
+        if col in df.columns:
+            df[col] = pd.to_datetime(df[col], errors="coerce")
+
+    required_columns = [
+        "order_id",
+        "order_purchase_timestamp",
+        "purchase_month",
+        "order_value",
+        "review_score",
+        "customer_state",
+        "delivery_delay_days",
+        "is_late",
+    ]
+
+    missing = [col for col in required_columns if col not in df.columns]
+
+    if missing:
+        raise ValueError(
+            "Kolom berikut tidak ditemukan di main_data.csv: "
+            + ", ".join(missing)
+            + ". Ekspor ulang analysis_df dari notebook terbaru."
+        )
+
     df["purchase_month"] = df["purchase_month"].astype(str)
-    df["customer_state"] = df["customer_state"].astype(str).str.upper()
+    df["customer_state"] = (
+        df["customer_state"].fillna("Tidak diketahui").astype(str).str.upper()
+    )
+
+    df["order_value"] = pd.to_numeric(df["order_value"], errors="coerce")
+    df["review_score"] = pd.to_numeric(df["review_score"], errors="coerce")
+    df["delivery_delay_days"] = pd.to_numeric(
+        df["delivery_delay_days"], errors="coerce"
+    )
+    df["is_late"] = pd.to_numeric(df["is_late"], errors="coerce")
+
     return df
 
 
-df = load_data()
+try:
+    df = load_data()
+except Exception as e:
+    st.error(f"Gagal memuat data: {e}")
+    st.stop()
+
 
 st.title("🛍️ Olist E-Commerce Analytics Dashboard")
 st.caption(
-    "Analisis tren pesanan, nilai produk, ulasan pelanggan, "
-    "dan performa pengiriman — Brazilian E-Commerce Public Dataset."
+    "Analisis tren transaksi, pengalaman pelanggan, dan performa pengiriman "
+    "berdasarkan Olist Brazilian E-Commerce Public Dataset."
 )
 
-min_date = df["order_purchase_timestamp"].min().date()
-max_date = df["order_purchase_timestamp"].max().date()
 
 state_mapping = {
     "AC": "Acre",
@@ -66,33 +107,38 @@ state_mapping = {
     "TO": "Tocantins",
 }
 
-states = sorted(df["customer_state"].dropna().unique().tolist())
+
+# Filter tanggal dan wilayah
+min_date = df["order_purchase_timestamp"].min().date()
+max_date = df["order_purchase_timestamp"].max().date()
+
+states = sorted(
+    df.loc[
+        df["customer_state"] != "TIDAK DIKETAHUI",
+        "customer_state"
+    ].dropna().unique().tolist()
+)
 
 state_options = {
     f"{state_mapping.get(code, code)} ({code})": code
     for code in states
 }
 
-# Filter
 with st.sidebar:
-    st.header("Filter")
+    st.header("Filter Dashboard")
 
     date_range = st.date_input(
         "Rentang tanggal pembelian",
         value=(min_date, max_date),
         min_value=min_date,
-        max_value=max_date
+        max_value=max_date,
     )
 
     selected_state_names = st.multiselect(
         "Negara bagian pelanggan",
         options=list(state_options.keys()),
-        default=[]
+        default=[],
     )
-
-    selected_states = [
-        state_options[name] for name in selected_state_names
-    ]
 
 filtered = df.copy()
 
@@ -105,172 +151,232 @@ if isinstance(date_range, (tuple, list)) and len(date_range) == 2:
         )
     ]
 
-if selected_states:
+if selected_state_names:
+    selected_states = [
+        state_options[name] for name in selected_state_names
+    ]
     filtered = filtered[
         filtered["customer_state"].isin(selected_states)
     ]
 
 if filtered.empty:
     st.warning(
-        "Tidak ada data untuk kombinasi filter yang dipilih. "
+        "Tidak ada data untuk filter yang dipilih. "
         "Silakan ubah rentang tanggal atau wilayah."
     )
     st.stop()
 
+
 # Ringkasan metrik
-orders = filtered["order_id"].nunique()
-revenue = filtered["order_value"].sum(skipna=True)
-avg_review = filtered["review_score"].mean()
+total_orders = filtered["order_id"].nunique()
+total_value = filtered["order_value"].sum()
+average_review = filtered["review_score"].mean()
+
+delivery_data = filtered.dropna(subset=["delivery_delay_days"])
 late_rate = (
-    filtered["is_late"].dropna().astype(float).mean() * 100
+    delivery_data["delivery_delay_days"].gt(0).mean() * 100
+    if not delivery_data.empty
+    else float("nan")
 )
 
 c1, c2, c3, c4 = st.columns(4)
 
-c1.metric("Jumlah pesanan", f"{orders:,.0f}")
-c2.metric("Nilai produk", f"R$ {revenue:,.0f}")
+c1.metric("Jumlah Pesanan", f"{total_orders:,.0f}")
+c2.metric("Total Nilai Produk", f"R$ {total_value:,.2f}")
 c3.metric(
-    "Rata-rata ulasan",
-    "—" if pd.isna(avg_review) else f"{avg_review:.2f}/5"
+    "Rata-rata Skor Ulasan",
+    "—" if pd.isna(average_review) else f"{average_review:.2f}/5",
 )
 c4.metric(
-    "Tingkat keterlambatan",
-    "—" if pd.isna(late_rate) else f"{late_rate:.1f}%"
+    "Tingkat Keterlambatan",
+    "—" if pd.isna(late_rate) else f"{late_rate:.2f}%",
 )
 
-# Tren bulanan
+
+# Grafik 1 dan 2: tren transaksi bulanan
+st.subheader("Tren Transaksi Bulanan")
+
 monthly = (
-    filtered.dropna(subset=["order_purchase_timestamp"])
-    .groupby("purchase_month", as_index=False)
+    filtered.groupby("purchase_month", as_index=False)
     .agg(
         orders=("order_id", "nunique"),
         revenue=("order_value", "sum"),
-        avg_review=("review_score", "mean")
     )
-    .sort_values("purchase_month")
 )
+
+# Format YYYY-MM dari notebook memungkinkan pengurutan kronologis
+monthly = monthly.sort_values("purchase_month")
 
 left, right = st.columns(2)
 
 with left:
-    st.subheader("Tren jumlah pesanan per bulan")
     fig_orders = px.line(
         monthly,
         x="purchase_month",
         y="orders",
         markers=True,
         labels={
-            "purchase_month": "Bulan",
-            "orders": "Jumlah pesanan"
-        }
+            "purchase_month": "Bulan Pembelian",
+            "orders": "Jumlah Pesanan Unik",
+        },
+        title="Jumlah Pesanan per Bulan",
     )
+    fig_orders.update_layout(xaxis_tickangle=-45)
     st.plotly_chart(fig_orders, use_container_width=True)
 
 with right:
-    st.subheader("Nilai produk per bulan")
     fig_revenue = px.bar(
         monthly,
         x="purchase_month",
         y="revenue",
         labels={
-            "purchase_month": "Bulan",
-            "revenue": "Nilai produk (BRL)"
-        }
+            "purchase_month": "Bulan Pembelian",
+            "revenue": "Total Nilai Produk (BRL)",
+        },
+        title="Total Nilai Produk per Bulan",
     )
+    fig_revenue.update_layout(xaxis_tickangle=-45)
     st.plotly_chart(fig_revenue, use_container_width=True)
 
-# Ulasan dan performa pengiriman
+
+# Grafik 3: skor ulasan berdasarkan status pengiriman
+st.subheader("Pengiriman dan Pengalaman Pelanggan")
+
 left, right = st.columns(2)
 
 with left:
-    st.subheader("Skor ulasan berdasarkan ketepatan pengiriman")
-
-    tmp = filtered.dropna(
+    delivery_review = filtered.dropna(
         subset=["delivery_delay_days", "review_score"]
     ).copy()
 
-    tmp["Status pengiriman"] = tmp["delivery_delay_days"].gt(0).map({
-        True: "Terlambat",
-        False: "Tepat waktu/lebih cepat"
-    })
+    delivery_review["Status Pengiriman"] = (
+        delivery_review["delivery_delay_days"]
+        .gt(0)
+        .map({
+            True: "Terlambat",
+            False: "Tepat waktu/lebih cepat",
+        })
+    )
 
-    review = (
-        tmp.groupby("Status pengiriman", as_index=False)
+    review_summary = (
+        delivery_review.groupby("Status Pengiriman", as_index=False)
         .agg(
             avg_review=("review_score", "mean"),
-            orders=("order_id", "nunique")
+            orders=("order_id", "nunique"),
         )
     )
 
-    if not review.empty:
-        fig_review = px.bar(
-            review,
-            x="Status pengiriman",
-            y="avg_review",
-            labels={
-                "Status pengiriman": "Status pengiriman",
-                "avg_review": "Rata-rata skor (1–5)"
-            },
-            text_auto=".2f"
-        )
-        st.plotly_chart(fig_review, use_container_width=True)
-    else:
-        st.info("Data ulasan dan pengiriman belum tersedia untuk filter ini.")
+    fig_review = px.bar(
+        review_summary,
+        x="Status Pengiriman",
+        y="avg_review",
+        text="avg_review",
+        range_y=[0, 5],
+        labels={
+            "Status Pengiriman": "Status Pengiriman",
+            "avg_review": "Rata-rata Skor Ulasan (1–5)",
+        },
+        title="Skor Ulasan berdasarkan Status Pengiriman",
+    )
+    fig_review.update_traces(texttemplate="%{text:.2f}", textposition="outside")
+    st.plotly_chart(fig_review, use_container_width=True)
 
+    st.caption(
+        "Status ditentukan dari selisih tanggal pengiriman aktual "
+        "dan estimasi pengiriman pada notebook."
+    )
+
+
+# Grafik 4: wilayah prioritas logistik
 with right:
-    st.subheader("Wilayah dengan keterlambatan tertinggi")
-
-    state = (
+    state_summary = (
         filtered.groupby("customer_state", as_index=False)
         .agg(
             orders=("order_id", "nunique"),
+            orders_with_delivery_data=("delivery_delay_days", "count"),
             late_rate=(
                 "is_late",
-                lambda s: s.dropna().astype(float).mean() * 100
-            )
+                lambda s: s.dropna().mean() * 100,
+            ),
         )
     )
 
-    state = state[state["orders"] >= 100].copy()
-    state = state.sort_values(
-        "late_rate", ascending=False
-    ).head(10)
+    # Konsisten dengan notebook:
+    # minimal 100 pesanan dengan data keterlambatan tersedia
+    priority_states = (
+        state_summary[
+            state_summary["orders_with_delivery_data"] >= 100
+        ]
+        .dropna(subset=["late_rate"])
+        .sort_values("late_rate", ascending=False)
+        .head(10)
+        .copy()
+    )
 
-    state["Nama wilayah"] = state["customer_state"].map(
+    priority_states["Nama Wilayah"] = priority_states[
+        "customer_state"
+    ].map(
         lambda code: f"{state_mapping.get(code, code)} ({code})"
     )
 
-    if not state.empty:
+    if not priority_states.empty:
+        plot_state = priority_states.sort_values("late_rate")
+
         fig_state = px.bar(
-            state.sort_values("late_rate"),
+            plot_state,
             x="late_rate",
-            y="Nama wilayah",
+            y="Nama Wilayah",
             orientation="h",
+            text="late_rate",
             labels={
-                "late_rate": "Keterlambatan (%)",
-                "Nama wilayah": "Negara bagian"
+                "late_rate": "Tingkat Keterlambatan (%)",
+                "Nama Wilayah": "Negara Bagian Pelanggan",
             },
-            text_auto=".1f"
+            title="Wilayah dengan Keterlambatan Tertinggi",
+        )
+        fig_state.update_traces(
+            texttemplate="%{text:.2f}%",
+            textposition="outside",
         )
         st.plotly_chart(fig_state, use_container_width=True)
     else:
         st.info(
-            "Tidak ada wilayah dengan minimal 100 pesanan "
-            "pada filter yang dipilih."
+            "Belum ada wilayah yang memenuhi minimal 100 pesanan "
+            "dengan data keterlambatan pada filter ini."
         )
 
-# Tabel data dan unduhan
+
+# Tabel data
+with st.expander("Lihat ringkasan wilayah"):
+    if "priority_states" in locals() and not priority_states.empty:
+        st.dataframe(
+            priority_states[
+                [
+                    "customer_state",
+                    "orders",
+                    "orders_with_delivery_data",
+                    "late_rate",
+                ]
+            ],
+            use_container_width=True,
+            hide_index=True,
+        )
+    else:
+        st.info("Tidak ada data wilayah yang memenuhi batas sampel.")
+
 with st.expander("Lihat data yang digunakan"):
     st.dataframe(filtered, use_container_width=True)
 
     st.download_button(
-        "Unduh data terfilter (CSV)",
-        filtered.to_csv(index=False).encode("utf-8"),
-        "olist_filtered.csv",
-        "text/csv"
+        label="Unduh data terfilter (CSV)",
+        data=filtered.to_csv(index=False).encode("utf-8"),
+        file_name="olist_filtered.csv",
+        mime="text/csv",
     )
+
 
 st.caption(
     "Sumber: Olist Brazilian E-Commerce Public Dataset. "
-    "Nilai produk merupakan penjumlahan harga item dan tidak termasuk ongkos kirim."
+    "Nilai produk dihitung dari penjumlahan harga item (`order_value`), "
+    "tidak termasuk ongkos kirim."
 )
